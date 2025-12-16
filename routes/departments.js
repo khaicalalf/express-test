@@ -1,3 +1,7 @@
+const express = require("express");
+const router = express.Router();
+const { poolPromise } = require("../database/db");
+
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -8,3 +12,5 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;

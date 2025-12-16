@@ -1,4 +1,4 @@
-const { poolPromise, sql } = require("../db");
+const { poolPromise, sql } = require("../database/db");
 
 // GET all employees
 exports.getAllEmployees = async (req, res) => {
