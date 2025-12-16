@@ -3,6 +3,8 @@ const express = require("express");
 const app = express();
 
 app.use(express.json());
+const cors = require("cors");
+app.use(cors());
 
 // API Routes
 const employeesRouter = require("./routes/employees");
