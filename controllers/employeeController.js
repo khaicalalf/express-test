@@ -4,42 +4,44 @@ const { poolPromise, sql } = require("../db");
 exports.getAllEmployees = async (req, res) => {
   try {
     let { page = 1, limit = 10, search = "" } = req.query;
-
     page = parseInt(page);
     limit = parseInt(limit);
 
     if (page < 1 || limit < 1) {
-      return res.status(400).json({
-        message: "Page dan limit harus lebih dari 0",
-      });
+      return res
+        .status(400)
+        .json({ message: "Page & limit harus lebih dari 0" });
     }
 
     const offset = (page - 1) * limit;
-
     const pool = await poolPromise;
 
-    // TOTAL DATA
     const countResult = await pool
       .request()
       .input("search", sql.VarChar, `%${search}%`).query(`
         SELECT COUNT(*) AS total
-        FROM Employees
-        WHERE name LIKE @search
+        FROM Employees e
+        WHERE e.name LIKE @search
       `);
 
     const totalData = countResult.recordset[0].total;
-    const totalPages = Math.ceil(totalData / limit);
 
-    // DATA PAGINATION
     const dataResult = await pool
       .request()
       .input("search", sql.VarChar, `%${search}%`)
       .input("offset", sql.Int, offset)
       .input("limit", sql.Int, limit).query(`
-        SELECT *
-        FROM Employees
-        WHERE name LIKE @search
-        ORDER BY id
+        SELECT 
+          e.id,
+          e.name,
+          e.position,
+          e.salary,
+          e.DepartmentID,
+          d.DepartmentName
+        FROM Employees e
+        JOIN Departments d ON e.DepartmentID = d.DepartmentID
+        WHERE e.name LIKE @search
+        ORDER BY e.id
         OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
       `);
 
@@ -47,7 +49,6 @@ exports.getAllEmployees = async (req, res) => {
       page,
       limit,
       totalData,
-      totalPages,
       data: dataResult.recordset,
     });
   } catch (err) {
@@ -59,10 +60,16 @@ exports.getAllEmployees = async (req, res) => {
 exports.getEmployeeById = async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("id", sql.Int, req.params.id)
-      .query("SELECT * FROM Employees WHERE id = @id");
+    const result = await pool.request().input("id", sql.Int, req.params.id)
+      .query(`SELECT 
+          e.id,
+          e.name,
+          e.position,
+          e.salary,
+          e.DepartmentID,
+          d.DepartmentName
+        FROM Employees e
+        JOIN Departments d ON e.DepartmentID = d.DepartmentID WHERE e.id = @id`);
 
     res.json(result.recordset[0] || {});
   } catch (err) {
@@ -72,7 +79,7 @@ exports.getEmployeeById = async (req, res) => {
 
 // POST new employee
 exports.createEmployee = async (req, res) => {
-  const { name, position, salary } = req.body;
+  const { name, position, salary, DepartmentID } = req.body;
 
   if (!name || name.trim() === "") {
     return res.status(400).json({
@@ -93,8 +100,9 @@ exports.createEmployee = async (req, res) => {
       .input("name", sql.VarChar, name)
       .input("position", sql.VarChar, position || "")
       .input("salary", sql.Int, salary)
+      .input("DepartmentID", sql.Int, DepartmentID)
       .query(
-        "INSERT INTO Employees (name, position, salary) VALUES (@name, @position, @salary)"
+        "INSERT INTO Employees (name, position, salary, DepartmentID) VALUES (@name, @position, @salary, @DepartmentID)"
       );
 
     res.status(201).json({ message: "Employee created" });
@@ -105,7 +113,7 @@ exports.createEmployee = async (req, res) => {
 
 // PUT update employee
 exports.updateEmployee = async (req, res) => {
-  const { name, position, salary } = req.body;
+  const { name, position, salary, DepartmentID } = req.body;
 
   try {
     const pool = await poolPromise;
@@ -115,9 +123,10 @@ exports.updateEmployee = async (req, res) => {
       .input("name", sql.VarChar, name)
       .input("position", sql.VarChar, position)
       .input("salary", sql.Int, salary)
+      .input("DepartmentID", sql.Int, DepartmentID)
       .query(
         `UPDATE Employees 
-         SET name=@name, position=@position, salary=@salary 
+         SET name=@name, position=@position, salary=@salary, DepartmentID=@DepartmentID 
          WHERE id=@id`
       );
 
